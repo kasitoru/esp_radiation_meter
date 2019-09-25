@@ -14,7 +14,7 @@
 #define SENSOR_UNIT   0  // Единица измерения (0 - мкР/ч, 1 - мкЗв/ч)
 
 #define NARODMON_ENABLE   TRUE // Отправлять данные на сервис narodmon.ru
-#define NARODMON_INTERVAL 600  // Интервал отправки данных (сек)
+#define NARODMON_INTERVAL 300  // Интервал отправки данных (сек)
 #define NARODMON_METHOD   0    // Метод отправки данных (0 - TCP, 1 - UDP)
 
 #define round(x) ((x)>=0?(long)((x)+0.5):(long)((x)-0.5))
