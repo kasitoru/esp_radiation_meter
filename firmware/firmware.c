@@ -170,7 +170,7 @@ void ICACHE_FLASH_ATTR timerfunc(uint32_t timersrc) {
 			}
 		}
 		// Добавляем результаты замера в массив
-		float count_per_second = (float) counter_value / SENSOR_TIME;
+		float count_per_second = (float) (counter_value / 2) / SENSOR_TIME;
 		counter_data[SENSOR_SUM - 1] = calculate_urh(count_per_second);
 		counter_value = 0;
 		// Рассчитываем усредненное значение
@@ -220,7 +220,7 @@ void ICACHE_FLASH_ATTR timerfunc(uint32_t timersrc) {
 // Вывод данных в WEB интерфейсе
 void webfunc(char *pbuf) {
 	os_sprintf(HTTPBUFF, "Напряжение датчика: %d V", pumping_voltage);
-	os_sprintf(HTTPBUFF, "<br>Количество импульсов: %d", counter_value);
+	os_sprintf(HTTPBUFF, "<br>Количество импульсов: %d", counter_value / 2);
 	if(result_counter > 0) {
 		#if SENSOR_UNIT == 0
 			os_sprintf(HTTPBUFF, "<br>Радиационный фон: %d мкР/ч", counter_result);
