@@ -1,3 +1,8 @@
+# ESP Radiation Meter
+# Author: Sergey Avdeev
+# E-Mail: avdeevsv91@gmail.com
+# URL: https://github.com/avdeevsv91/esp_radiation_meter
+
 #define PUMPING_PIN    4   // Номер пина генератора накачки
 #define PUMPING_PULSE  50  // Длина импульса накачки
 #define PUMPING_FREQ   5   // Частота генератора накачки
