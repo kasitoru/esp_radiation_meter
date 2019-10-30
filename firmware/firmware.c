@@ -1,7 +1,7 @@
-# ESP Radiation Meter
-# Author: Sergey Avdeev
-# E-Mail: avdeevsv91@gmail.com
-# URL: https://github.com/avdeevsv91/esp_radiation_meter
+// ESP Radiation Meter
+// Author: Sergey Avdeev
+// E-Mail: avdeevsv91@gmail.com
+// URL: https://github.com/avdeevsv91/esp_radiation_meter
 
 #define PUMPING_PIN    4   // Номер пина генератора накачки
 #define PUMPING_PULSE  50  // Длина импульса накачки
@@ -16,11 +16,6 @@
 #define SENSOR_NUM    1  // Количество установленных датчиков (параллельное подключение)
 #define SENSOR_TIME   36 // Время для замера в секундах
 #define SENSOR_SUM    10 // Количество замеров для усреднения
-#define SENSOR_UNIT   0  // Единица измерения (0 - мкР/ч, 1 - мкЗв/ч)
-
-#define NARODMON_ENABLE   TRUE // Отправлять данные на сервис narodmon.ru
-#define NARODMON_INTERVAL 300  // Интервал отправки данных (сек)
-#define NARODMON_METHOD   0    // Метод отправки данных (0 - TCP, 1 - UDP)
 
 #define round(x) ((x)>=0?(long)((x)+0.5):(long)((x)-0.5))
 
@@ -102,68 +97,10 @@ uint32_t ICACHE_FLASH_ATTR calculate_urh(float cps) {
 	#endif
 }
 
-// Отправка данных на narodmon.ru
-#if NARODMON_ENABLE
-	void ICACHE_FLASH_ATTR narodmon_end(void *arg) {
-		struct espconn *conn = (struct espconn *) arg;
-		espconn_delete(conn);
-	}
-	void ICACHE_FLASH_ATTR narodmon_error(void *arg, int8_t err) {
-		struct espconn *conn = (struct espconn *) arg;
-		narodmon_end(conn);
-	}
-	void ICACHE_FLASH_ATTR narodmon_send_data(void *arg) {
-		struct espconn *conn = (struct espconn *) arg;
-		char payload[512], mac[6];
-		wifi_get_macaddr(STATION_IF, mac);
-		os_sprintf(payload, "#" MACSTR "#%s\n", MAC2STR(mac), "Радиационный фон");
-		#if SENSOR_UNIT == 0
-			os_sprintf(payload+ os_strlen(payload), "#%s#%d", "R1", counter_result);
-		#else
-			os_sprintf(payload+ os_strlen(payload), "#%s#%d.%02d", "R1", (uint8_t) (counter_result / 100), (uint8_t) (counter_result % 100));
-		#endif
-		#if SENSOR_TYPE == 1 // СБМ-20/СТС-5/BOI-33
-			os_sprintf(payload+ os_strlen(payload), "#%s\n", "СБМ-20/СТС-5/BOI-33");
-		#elif SENSOR_TYPE == 2 // СБМ-19/СТС-6
-			os_sprintf(payload+ os_strlen(payload), "#%s\n", "СБМ-19/СТС-6");
-		#else // Неизвестный датчик
-			os_sprintf(payload+ os_strlen(payload), "#%s\n", "Счётчик Гейгера");
-		#endif
-		os_sprintf(payload+ os_strlen(payload), "##");
-		espconn_send(conn, payload, strlen(payload));
-	}
-	void ICACHE_FLASH_ATTR narodmon_connect(const char *name, ip_addr_t *ipaddr, void *arg) {
-		if(ipaddr != NULL) {
-			struct espconn *conn = (struct espconn *) arg;
-			conn->state = ESPCONN_NONE;
-			#if NARODMON_METHOD == 0 // TCP
-				conn->type = ESPCONN_TCP;
-				conn->proto.tcp = (esp_tcp *) os_zalloc(sizeof(esp_tcp));
-				conn->proto.tcp->local_port = espconn_port();
-				conn->proto.tcp->remote_port = 8283;
-				os_memcpy(conn->proto.tcp->remote_ip, &ipaddr->addr, 4);
-				espconn_regist_connectcb(conn, narodmon_send_data);
-				espconn_regist_disconcb(conn, narodmon_end);
-				espconn_regist_reconcb(conn, narodmon_error);
-				espconn_connect(conn);
-			#elif NARODMON_METHOD == 1 // UDP
-				conn->type = ESPCONN_UDP;
-				conn->proto.udp = (esp_udp *)os_zalloc(sizeof(esp_udp));
-				conn->proto.udp->local_port = espconn_port();
-				conn->proto.udp->remote_port = 8283;
-				os_memcpy(conn->proto.udp->remote_ip, &ipaddr->addr, 4);
-				if(espconn_create(conn) == 0) {
-					narodmon_send_data(conn);
-					narodmon_end(conn);
-				}
-			#endif
-		}
-	}
-#endif
-
 // Ежесекундный таймер
 void ICACHE_FLASH_ATTR timerfunc(uint32_t timersrc) {
 	uint16_t i = 0;
+	valdes[2] = pumping_voltage;
 	if(timersrc % SENSOR_TIME == 0) { // Закончили замер
 		result_counter++;
 		// Сдвигаем предыдушие результаты влево
@@ -190,36 +127,13 @@ void ICACHE_FLASH_ATTR timerfunc(uint32_t timersrc) {
 			counter_result = round(counter_summ / result_counter);
 			counter_accuracy = round(100 * result_counter / SENSOR_SUM);
 		}
-		// Отправка данных по MQTT
-		uint8_t mqtt_len = 0;
-		char mqtt_payload[32];
-		MQTT_Client* mqtt_client = (MQTT_Client*) &mqttClient;
-		#if SENSOR_UNIT == 0
-			mqtt_len = os_sprintf(mqtt_payload, "%d", counter_result);
-		#else
-			mqtt_len = os_sprintf(mqtt_payload, "%d.%02d", (uint8_t) (counter_result / 100), (uint8_t) (counter_result % 100));
-		#endif
-		MQTT_Publish(mqtt_client, "radiation", mqtt_payload, mqtt_len, 2, 0, 1);
-		mqtt_len = os_sprintf(mqtt_payload, "%d", counter_accuracy);
-		MQTT_Publish(mqtt_client, "accuracy", mqtt_payload, mqtt_len, 2, 0, 1);
+		valdes[0] = counter_result;
+		valdes[1] = counter_accuracy;
 		// Отправка данных по UART
 		char uart_payload[32];
-		#if SENSOR_UNIT == 0
-			uint8_t uart_len = os_sprintf(uart_payload, "%d uR/h:%d%%\n\r", counter_result, counter_accuracy);
-		#else
-			uint8_t uart_len = os_sprintf(uart_payload, "%d.%02d uSv/h:%d%%\n\r", (uint8_t) (counter_result / 100), (uint8_t) (counter_result % 100), counter_accuracy);
-		#endif
+		uint8_t uart_len = os_sprintf(uart_payload, "%d uR/h:%d%%\n\r", counter_result, counter_accuracy);
 		uart0_tx_buffer(uart_payload, uart_len);
 	}
-	#if NARODMON_ENABLE
-	if(timersrc % NARODMON_INTERVAL == 0) { // Отправка данных на narodmon.ru
-		if(result_counter > 0) {
-			struct espconn *conn = (struct espconn *) os_zalloc(sizeof(struct espconn));	
-			ip_addr_t *ipaddr = (ip_addr_t *) os_zalloc(sizeof(ip_addr_t));
-			espconn_gethostbyname(conn, "narodmon.ru", ipaddr, narodmon_connect);
-		}
-	}
-	#endif
 }
 
 // Вывод данных в WEB интерфейсе
@@ -227,11 +141,7 @@ void webfunc(char *pbuf) {
 	os_sprintf(HTTPBUFF, "Напряжение датчика: %d V", pumping_voltage);
 	os_sprintf(HTTPBUFF, "<br>Количество импульсов: %d", counter_value / 2);
 	if(result_counter > 0) {
-		#if SENSOR_UNIT == 0
-			os_sprintf(HTTPBUFF, "<br>Радиационный фон: %d мкР/ч", counter_result);
-		#else
-			os_sprintf(HTTPBUFF, "<br>Радиационный фон: %d.%02d мкЗв/ч", (uint8_t) (counter_result / 100), (uint8_t) (counter_result % 100));
-		#endif
+		os_sprintf(HTTPBUFF, "<br>Радиационный фон: %d мкР/ч", counter_result);
 	} else {
 		os_sprintf(HTTPBUFF, "<br>Радиационный фон: N/A");
 	}
