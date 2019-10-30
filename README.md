@@ -34,11 +34,6 @@ SMD резисторы http://ali.pub/3srb90
 ```#define SENSOR_NUM    1  // Количество установленных датчиков (параллельное подключение)```  
 ```#define SENSOR_TIME   36 // Время для замера в секундах```  
 ```#define SENSOR_SUM    10 // Количество замеров для усреднения```  
-```#define SENSOR_UNIT   0  // Единица измерения (0 - мкР/ч, 1 - мкЗв/ч)```  
-``` ```  
-```#define NARODMON_ENABLE   TRUE // Отправлять данные на сервис narodmon.ru```  
-```#define NARODMON_INTERVAL 600  // Интервал отправки данных (сек)```  
-```#define NARODMON_METHOD   0    // Метод отправки данных (0 - TCP, 1 - UDP)```  
 
 ### Прошивка
 Для сборки прошивки используется сервис [WiFi-IoT](https://wifi-iot.com/). В конструкторе необходимо выбрать SDK версии 1.3.0, отметить модули "Настройки по умолчанию" (указываются параметры подключения к вашей точке доступа), "MQTT клиент", "UART bridge" и "Конструктор кода" (вставляем код прошивки из файла [firmware.c](https://github.com/avdeevsv91/esp_radiation_meter/raw/master/firmware/firmware.c)) и скомпилировать бинарник.
